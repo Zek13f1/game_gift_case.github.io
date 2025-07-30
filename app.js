@@ -1,0 +1,216 @@
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+// Инициализация данных пользователя
+let userData = {
+    stars: localStorage.getItem('stars') ? parseInt(localStorage.getItem('stars')) : 1000,
+    inventory: JSON.parse(localStorage.getItem('inventory')) || []
+};
+
+// Обновление отображения баланса
+function updateBalance() {
+    document.getElementById('stars').textContent = userData.stars;
+}
+
+// Данные кейсов
+const cases = {
+    "Обычный": {
+        price: 100,
+        items: [
+            { name: "Обычный подарок 1", image: "https://i.yapx.ru/aGMLa.png", probability: 0.5 },
+            { name: "Обычный подарок 2", image: "https://i.yapx.ru/aGMei.png", probability: 0.3 },
+            { name: "Редкий подарок", image: "https://i.yapx.ru/aGMe1.png", probability: 0.15 },
+            { name: "Эпический подарок", image: "https://i.yapx.ru/aGMe8.png", probability: 0.05 }
+        ]
+    },
+    "Редкий": {
+        price: 250,
+        items: [
+            { name: "Редкий подарок 1", image: "https://i.yapx.ru/aGMfO.png", probability: 0.6 },
+            { name: "Редкий подарок 2", image: "https://i.yapx.ru/aGMfS.png", probability: 0.25 },
+            { name: "Эпический подарок", image: "https://i.yapx.ru/aGMff.png", probability: 0.1 },
+            { name: "Легендарный подарок", image: "https://i.yapx.ru/aGMgI.png", probability: 0.05 }
+        ]
+    },
+    "Эпический": {
+        price: 500,
+        items: [
+            { name: "Эпический подарок 1", image: "https://i.yapx.ru/aGMaI.png", probability: 0.55 },
+            { name: "Эпический подарок 2", image: "https://i.yapx.ru/aGMcn.png", probability: 0.3 },
+            { name: "Легендарный подарок", image: "https://i.yapx.ru/aGMfO.png", probability: 0.1 },
+            { name: "Мифический подарок", image: "https://i.yapx.ru/aGMe8.png", probability: 0.05 }
+        ]
+    },
+    "Легендарный": {
+        price: 1000,
+        items: [
+            { name: "Легендарный подарок 1", image: "https://i.yapx.ru/aGMfO.png", probability: 0.6 },
+            { name: "Легендарный подарок 2", image: "https://i.yapx.ru/aGMe8.png", probability: 0.25 },
+            { name: "Мифический подарок", image: "https://i.yapx.ru/aGMgI.png", probability: 0.1 },
+            { name: "Уникальный подарок", image: "https://i.yapx.ru/aGMLa.png", probability: 0.05 }
+        ]
+    },
+    "Мифический": {
+        price: 2500,
+        items: [
+            { name: "Мифический подарок 1", image: "https://i.yapx.ru/aGMe8.png", probability: 0.5 },
+            { name: "Мифический подарок 2", image: "https://i.yapx.ru/aGMfO.png", probability: 0.3 },
+            { name: "Уникальный подарок", image: "https://i.yapx.ru/aGMLa.png", probability: 0.15 },
+            { name: "Божественный подарок", image: "https://i.yapx.ru/aGMe1.png", probability: 0.05 }
+        ]
+    }
+};
+
+// Функция открытия кейса
+function openCase(type) {
+    const caseData = cases[type];
+    
+    if (userData.stars < caseData.price) {
+        alert(`❌ Недостаточно Stars! Нужно ${caseData.price}, у вас ${userData.stars}`);
+        return;
+    }
+
+    const roulette = document.getElementById("roulette");
+    const resultDiv = document.getElementById("result");
+    const rouletteContainer = document.getElementById("roulette-container");
+    const caseItemsPreview = document.getElementById("case-items-preview");
+    
+    // Очищаем и показываем контейнеры
+    roulette.innerHTML = "";
+    resultDiv.innerHTML = "";
+    caseItemsPreview.innerHTML = "";
+    rouletteContainer.style.display = "block";
+
+    // Показываем предметы кейса в превью
+    caseData.items.forEach(item => {
+        const previewItem = document.createElement("div");
+        previewItem.className = "preview-item";
+        previewItem.innerHTML = `
+            <img src="${item.image}" alt="${item.name}">
+            <p>${item.name}</p>
+        `;
+        caseItemsPreview.appendChild(previewItem);
+    });
+
+    // Создаем взвешенный список предметов для рулетки
+    const weightedItems = [];
+    caseData.items.forEach(item => {
+        const count = Math.floor(item.probability * 100);
+        for (let i = 0; i < count; i++) {
+            weightedItems.push(item);
+        }
+    });
+
+    // Заполняем рулетку
+    weightedItems.forEach(item => {
+        const itemElement = document.createElement("div");
+        itemElement.className = "roulette-item";
+        itemElement.innerHTML = `
+            <img src="${item.image}" alt="${item.name}">
+            <p>${item.name}</p>
+        `;
+        roulette.appendChild(itemElement);
+    });
+
+    // Анимация рулетки
+    const itemWidth = 100; // Ширина одного элемента в px
+    const rouletteWidth = weightedItems.length * itemWidth;
+    roulette.style.width = `${rouletteWidth}px`;
+    
+    let startPosition = 0;
+    const spinDuration = 10000; // 10 секунд
+    const startTime = Date.now();
+    
+    function spin() {
+        const currentTime = Date.now();
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / spinDuration, 1);
+        
+        // Замедление со временем
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        
+        // Позиция рулетки
+        const distance = 3000 + 5000 * Math.random(); // Общее расстояние прокрутки
+        const currentPosition = distance * easeOut;
+        
+        roulette.style.transform = `translateX(-${currentPosition}px)`;
+        
+        if (progress < 1) {
+            requestAnimationFrame(spin);
+        } else {
+            // Определяем выигранный предмет
+            const finalPosition = currentPosition % rouletteWidth;
+            const itemIndex = Math.floor(finalPosition / itemWidth);
+            const prize = weightedItems[itemIndex % weightedItems.length];
+            finishSpin(type, prize);
+        }
+    }
+    
+    spin();
+}
+
+// Завершение анимации
+function finishSpin(type, prize) {
+    const caseData = cases[type];
+    
+    // Вычитаем стоимость
+    userData.stars -= caseData.price;
+    localStorage.setItem('stars', userData.stars);
+    updateBalance();
+    
+    // Добавляем в инвентарь
+    userData.inventory.push(prize);
+    localStorage.setItem('inventory', JSON.stringify(userData.inventory));
+    
+    // Показываем результат
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = `
+        <div class="prize-result">
+            <h3>🎉 Вы выиграли!</h3>
+            <img src="${prize.image}" alt="${prize.name}">
+            <p>${prize.name}</p>
+        </div>
+    `;
+    
+    // Прокручиваем к результату
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Показ инвентаря
+function showInventory() {
+    const resultDiv = document.getElementById("result");
+    const rouletteContainer = document.getElementById("roulette-container");
+    
+    rouletteContainer.style.display = "none";
+    
+    if (userData.inventory.length === 0) {
+        resultDiv.innerHTML = "<p>Ваш инвентарь пуст</p>";
+        return;
+    }
+    
+    let inventoryHTML = "<h3>📦 Ваши подарки:</h3><div class='inventory-grid'>";
+    
+    // Группируем одинаковые предметы
+    const itemsCount = {};
+    userData.inventory.forEach(item => {
+        itemsCount[item.name] = (itemsCount[item.name] || 0) + 1;
+    });
+    
+    // Отображаем
+    for (const [name, count] of Object.entries(itemsCount)) {
+        const item = userData.inventory.find(i => i.name === name);
+        inventoryHTML += `
+            <div class="inventory-item">
+                <img src="${item.image}" alt="${name}">
+                <p>${name} ×${count}</p>
+            </div>
+        `;
+    }
+    
+    inventoryHTML += "</div>";
+    resultDiv.innerHTML = inventoryHTML;
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Инициализация
+updateBalance();
